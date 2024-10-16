@@ -1,0 +1,24 @@
+html,
+body {
+    height: 100%;
+    margin: 0;
+}
+
+.aside {
+    height: 100vh;
+    position: sticky;
+    top: 0;
+}
+
+.aside-bar {
+    border-right: 2px solid gainsboro;
+}
+.aside-bar a {
+    font-size: 20px !important;
+    color: #000 !important;
+}
+.aside-bar button#dropdown-basic {
+    font-size: 20px !important;
+
+    color: #000 !important;
+}
