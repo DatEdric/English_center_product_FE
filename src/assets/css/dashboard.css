@@ -22,3 +22,21 @@ body {
 
     color: #000 !important;
 }
+table.table-excel {
+    margin-top: 20px;
+    width: 2000px !important;
+    padding: 15px;
+}
+table.table-excel tr {
+    width: 100%;
+}
+
+table.table-excel th {
+    font-size: 14px;
+    padding: 10px;
+}
+table.table-excel td {
+    width: 300px !important;
+    padding: 15px;
+    font-size: 14px;
+}

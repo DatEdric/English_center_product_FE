@@ -1,122 +1,198 @@
-import axios from "axios";
-import React, { useEffect, useState } from "react";
-import { Button, Col, Container, Form, Row, Table } from "react-bootstrap";
-import { useNavigate } from "react-router-dom";
+import axios from 'axios';
+import React, { useState } from 'react';
+import { Button, Container } from 'react-bootstrap';
+import { FaFileExcel } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import * as XLSX from 'xlsx';
+import '../../assets/css/uploadFile.css';
 
 export default function ScheduleComponent() {
-    const [schedules, setSchedules] = useState([]);
-    const [selectedDate, setSelectedDate] = useState("");
-    const [error, setError] = useState(null);
-    const [responseData, setResponseData] = useState(null);
-    const navigate = useNavigate();
+  
+    const [file, setFile] = useState(null);
+    const [data, setData] = useState([]);
 
-    useEffect(() => {
-        const fetchSchedules = async () => {
-            try {
-                const response = await axios.get("http://localhost:3000/schedule/");
-                setSchedules(response.data.result || []);
-            } catch (err) {
-                setError(err);
-                console.error("Error fetching schedules:", err);
-            }
+    const readExcelFile = (file) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const binaryStr = e.target.result;
+            const workbook = XLSX.read(binaryStr, { type: 'binary' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+            setData(jsonData);
         };
 
-        fetchSchedules();
-    }, []);
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            const response = await axios.post("http://localhost:3000/schedule/", {
-                date: selectedDate,
-            });
-            setResponseData(response.data);
-        } catch (err) {
-            console.error("Error posting data:", err);
-            setError(err);
-        }
+        reader.readAsArrayBuffer(file);
     };
 
-    const handleEditClick = async (scheduleId) => {
-        navigate(`/schedule/edit/${scheduleId}`);
-    };
-
-    const handleDeleteClick = async (scheduleId) => {
-        try {
-            const response = await axios.patch(`http://localhost:3000/schedule/delete/${scheduleId}`);
-            if (response.data[0] === 1) {
-                toast.success("Xóa thành công!");
-
-                setResponseData(prevData => prevData.filter(item => item.schedule_id !== scheduleId));
-            } else {
-                toast.error("Xóa không thành công!");
+    const handleFileChange = (e) => {
+        const selectedFile = e.target.files[0];
+        if (selectedFile) {
+            const validExtensions = ['.xlsx', '.xls'];
+            const fileExtension = selectedFile.name.slice(-5).toLowerCase();
+            if (!validExtensions.includes(fileExtension)) {
+                alert('Vui lòng chọn file Excel (.xlsx hoặc .xls)');
+                return;
             }
-        } catch (err) {
-            console.error("Error deleting schedule:", err);
-            toast.error("Đã xảy ra lỗi khi xóa lịch!");
+            setFile(selectedFile);
+            readExcelFile(selectedFile);
         }
     };
-    const handleGetDeletedRecord = async () => {
-        navigate(`/schedule/deleted-all`)
-     };
-     
+
+    const handleUpload = async () => {
+        if (!file) {
+            toast.warning('Vui lòng chọn file trước!');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('schedule', file);
+        try {
+            const response = await axios.post(
+                'http://localhost:3000/upload',
+                formData,
+                {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    },
+                },
+            );
+            toast.success('File đã được upload thành công!');
+        } catch (error) {
+            console.error('Lỗi khi upload file:', error);
+            toast.error('Đã xảy ra lỗi khi upload file.');
+        }
+    };
+    const jsonValue = data.slice(1);
     return (
-        <Container fluid>
-            <Row>
-                <Col md={12}>
-                    <h1>Danh sách lịch học</h1>
-                    <Form onSubmit={handleSubmit}>
-                        <Form.Group controlId="selectDate">
-                            <Form.Label>Chọn ngày</Form.Label>
-                            <Form.Control type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
-                        </Form.Group>
-                        <Button className="mt-4" variant="primary" type="submit">
-                            Xem Lịch
-                        </Button>
-                        {error && <p className="text-danger mt-2">Error: {error.message}</p>}
-                    </Form>
-                    <div className="mt-4">
-                    <Button onClick={() => handleGetDeletedRecord()}  style={{float: 'right', margin:'20px'}}><i className="fa-solid fa-trash-can"></i></Button>
-                        <h3>Danh sách lịch học:</h3>
-                        <Table striped bordered hover>
-                            <thead>
-                                <tr>
-                                    <th>Tên phòng học</th>
-                                    <th>Ngày</th>
-                                    <th>Ca dạy</th>
-                                    <th>Giáo viên</th>
-                                    <th>Tên Lớp</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {responseData == null
-                                    ? []
-                                    : responseData.map((item, index) => (
-                                          <tr key={index} id={item.schedule_id}>
-                                              <td>{item.classroom.classroom_name}</td>
-                                              <td>{item.date}</td>
-                                              <td>{item.shift.teaching_shift}</td>
-                                              <td>{item.class.MainTeacher.teacher_name}</td>
-                                              <td>{item.class.class_name}</td>
-                                              <td>
-                                                  <Button onClick={() => handleEditClick(item.schedule_id)} className="btn btn-warning">
-                                                      Edit
-                                                  </Button>
-                                              </td>
-                                              <td>
-                                                  <Button onClick={() => handleDeleteClick(item.schedule_id)} className="btn btn-danger">
-                                                      Delete
-                                                  </Button>
-                                              </td>
-                                          </tr>
-                                      ))}
-                            </tbody>
-                        </Table>
-                    </div>
-                </Col>
-            </Row>
+        <Container >
+
+                                <div className="upload-container">
+                                    <h2>Upload Schedule</h2>
+                                    <label htmlFor="file-upload" className="custom-file-upload">
+                    <FaFileExcel /> Chọn File Excel
+                </label>
+                                    <input
+                                    id="file-upload"
+                                        type="file"
+                                        accept=".xlsx, .xls"
+                                        onChange={handleFileChange}
+                                        style={{ display: 'none' }}
+                                    />
+                                    <Button onClick={handleUpload}>
+                                        Upload
+                                    </Button>
+                                    {data.length > 0 && (
+                                        <table
+                                            border="1"
+                                            className="table-excel"
+                                        >
+                                            <thead>
+                                                <tr>
+                                                    <th>STT</th>
+                                                    <th>Thời gian</th>
+                                                    <th>Tên khóa học</th>
+                                                    <th>Tên lớp</th>
+                                                    <th>CM chính</th>
+                                                    <th>CM Phụ</th>
+                                                    <th>Học viên trong lớp</th>
+                                                    <th>Ngày bắt đầu</th>
+                                                    <th>Ngày kết thúc</th>
+                                                    <th>Phòng học</th>
+                                                    <th>Ngày bắt đầu</th>
+                                                    <th>Ngày kết thúc</th>
+                                                    <th>Phòng học</th>
+                                                    {Object.entries(
+                                                        data[0],
+                                                    ).map(([key, value]) => (
+                                                        <th key={key}>
+                                                            {key}
+
+                                                            <th>{value}</th>
+                                                        </th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {jsonValue.map((row, index) => (
+                                                    <tr key={index}>
+                                                        <td>{index + 1}</td>
+                                                        <td>
+                                                            {row['Thời gian']}
+                                                        </td>
+                                                        <td>
+                                                            {
+                                                                row[
+                                                                    'Tên khóa học'
+                                                                ]
+                                                            }
+                                                        </td>
+                                                        <td>
+                                                            {row['Tên lớp']}
+                                                        </td>
+                                                        <td>
+                                                            {row['CM chính']}
+                                                        </td>
+                                                        <td>{row['CM Phụ']}</td>
+                                                        <td>
+                                                            {
+                                                                row[
+                                                                    'Học viên trong lớp'
+                                                                ]
+                                                            }
+                                                        </td>
+                                                        <td>
+                                                            {
+                                                                row[
+                                                                    'Ngày bắt đầu'
+                                                                ]
+                                                            }
+                                                        </td>
+                                                        <td>
+                                                            {
+                                                                row[
+                                                                    'Ngày kết thúc'
+                                                                ]
+                                                            }
+                                                        </td>
+                                                        <td>
+                                                            {row['Phòng học']}
+                                                        </td>
+                                                        <td>
+                                                            {
+                                                                row[
+                                                                    'Ngày bắt đầu'
+                                                                ]
+                                                            }
+                                                        </td>
+                                                        <td>
+                                                            {
+                                                                row[
+                                                                    'Ngày kết thúc'
+                                                                ]
+                                                            }
+                                                        </td>
+                                                        <td>
+                                                            {row['Phòng học']}
+                                                        </td>
+                                                        {Object.keys(
+                                                            data[0],
+                                                        ).map((key) => (
+                                                            <td key={key}>
+                                                                {Object.keys(
+                                                                    row,
+                                                                ).includes(key)
+                                                                    ? row[key]
+                                                                    : ''}
+                                                            </td>
+                                                        ))}
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
         </Container>
     );
 }
+
